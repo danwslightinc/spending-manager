@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useScope } from '@/lib/scope-context';
 import { getAllTransactions } from '@/lib/storage';
 import {
-  getMonthlyData, getNetBalance, getTotalIncome, getTotalExpenses,
+  getMonthlyData, getNetBalance, getTotalIncome as getTotalEarnings, getTotalExpenses,
   getCumulativeNetWorth, getRecentTransactions, formatCurrency, formatMonth,
 } from '@/lib/analytics';
 import { Transaction } from '@/lib/types';
@@ -91,7 +91,7 @@ export default function DashboardPage() {
 
   // Analytics
   const netBalance = useMemo(() => getNetBalance(scopedTxns), [scopedTxns]);
-  const totalIncome = useMemo(() => getTotalIncome(scopedTxns), [scopedTxns]);
+  const totalEarnings = useMemo(() => getTotalEarnings(scopedTxns), [scopedTxns]);
   const totalExpenses = useMemo(() => getTotalExpenses(scopedTxns), [scopedTxns]);
   const monthlyData = useMemo(() => getMonthlyData(scopedTxns), [scopedTxns]);
   const netWorthData = useMemo(() => getCumulativeNetWorth(scopedTxns), [scopedTxns]);
@@ -117,8 +117,8 @@ export default function DashboardPage() {
           trend={{ value: netBalance > 0 ? 12.5 : -3.2, label: 'vs last month' }}
         />
         <StatCard
-          label="Total Income"
-          value={formatCurrency(totalIncome)}
+          label="Total Earnings"
+          value={formatCurrency(totalEarnings)}
           icon={TrendingUp}
           color="bg-gradient-to-br from-blue-500 to-indigo-600"
           trend={{ value: 8.2, label: 'vs last month' }}
@@ -210,7 +210,7 @@ export default function DashboardPage() {
                       tickFormatter={(v) => `$${(v / 1000).toFixed(0)}K`}
                     />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="income" name="Income" fill="#10B981" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="income" name="Earnings" fill="#10B981" radius={[6, 6, 0, 0]} />
                     <Bar dataKey="expenses" name="Expenses" fill="#F87171" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

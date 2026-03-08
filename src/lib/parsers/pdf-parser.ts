@@ -78,7 +78,17 @@ function parseDate(raw: string, fallbackYear?: string): string | null {
     if (nameMatch) {
         const month = MONTH_MAP[nameMatch[1].toLowerCase()];
         if (month) {
-            const year = nameMatch[3] || fallbackYear || new Date().getFullYear().toString();
+            let year = parseInt(nameMatch[3] || fallbackYear || new Date().getFullYear().toString());
+            const day = parseInt(nameMatch[2]);
+
+            // If the date is in the "future" (more than 30 days ahead of now), 
+            // it's likely a transaction from the previous year.
+            const date = new Date(year, parseInt(month) - 1, day);
+            const now = new Date();
+            if (date.getTime() > now.getTime() + 30 * 24 * 60 * 60 * 1000) {
+                year -= 1;
+            }
+
             return `${year}-${month}-${nameMatch[2].padStart(2, '0')}`;
         }
     }
@@ -88,7 +98,15 @@ function parseDate(raw: string, fallbackYear?: string): string | null {
     if (revMatch) {
         const month = MONTH_MAP[revMatch[2].toLowerCase()];
         if (month) {
-            const year = revMatch[3] || fallbackYear || new Date().getFullYear().toString();
+            let year = parseInt(revMatch[3] || fallbackYear || new Date().getFullYear().toString());
+            const day = parseInt(revMatch[1]);
+
+            const date = new Date(year, parseInt(month) - 1, day);
+            const now = new Date();
+            if (date.getTime() > now.getTime() + 30 * 24 * 60 * 60 * 1000) {
+                year -= 1;
+            }
+
             return `${year}-${month}-${revMatch[1].padStart(2, '0')}`;
         }
     }
@@ -257,7 +275,14 @@ function parseLinesGeneric(lines: string[], year: string, accountType: string): 
             // Credit card: typically one amount, negative = charge, positive = payment/credit
             // Most banks show charges as positive, payments as negative (or with CR)
             amount = -Math.abs(amounts[0]); // expenses are negative in our system
-            if (line.toLowerCase().includes(' cr') || line.includes('PAYMENT') || line.toLowerCase().includes('payment')) {
+            if (
+                line.toLowerCase().includes(' cr') ||
+                line.toLowerCase().includes('payment') ||
+                line.toLowerCase().includes('rewards') ||
+                line.toLowerCase().includes('redeem') ||
+                line.toLowerCase().includes('cash back') ||
+                line.toLowerCase().includes('adj')
+            ) {
                 amount = Math.abs(amounts[0]);
             }
         } else {

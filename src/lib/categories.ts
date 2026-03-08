@@ -17,7 +17,8 @@ export const CATEGORY_COLORS: Record<string, string> = {
     'Personal Care': '#D946EF',
     'Gifts & Donations': '#FB923C',
     'Travel': '#0EA5E9',
-    'Income': '#22C55E',
+    'Earnings': '#22C55E',
+    'Credit Card Payment': '#94A3B8',
     'Transfer': '#94A3B8',
     'Coffee': '#78350F',
     // Business
@@ -30,7 +31,6 @@ export const CATEGORY_COLORS: Record<string, string> = {
     'Equipment': '#F97316',
     'Business Insurance': '#A855F7',
     'Client Entertainment': '#F59E0B',
-    'Revenue': '#22C55E',
     'Business Misc': '#94A3B8',
     // Fallback
     'Uncategorized': '#CBD5E1',
@@ -53,7 +53,8 @@ export const PERSONAL_RULES: CategoryRule[] = [
     { keywords: ['salon', 'barber', 'spa', 'gym', 'fitness', 'goodlife'], category: 'Personal Care' },
     { keywords: ['donation', 'gift', 'charity'], category: 'Gifts & Donations' },
     { keywords: ['hotel', 'airbnb', 'air canada', 'westjet', 'flight', 'booking.com', 'expedia'], category: 'Travel' },
-    { keywords: ['payroll', 'salary', 'deposit', 'direct deposit', 'pay -', 'e-transfer received'], category: 'Income' },
+    { keywords: ['payroll', 'salary', 'deposit', 'direct deposit', 'pay -', 'e-transfer received'], category: 'Earnings' },
+    { keywords: ['rewards redemption', 'rewards', 'redemption', 'redeem', 'cash back', 'rewards back', 'interest adj'], category: 'Credit Card Payment' },
     { keywords: ['transfer', 'e-transfer', 'etransfer', 'tfr', 'xfer'], category: 'Transfer' },
 ];
 
@@ -68,7 +69,7 @@ export const BUSINESS_RULES: CategoryRule[] = [
     { keywords: ['computer', 'laptop', 'monitor', 'equipment', 'hardware', 'printer'], category: 'Equipment' },
     { keywords: ['business insurance', 'liability insurance', 'e&o'], category: 'Business Insurance' },
     { keywords: ['client lunch', 'client dinner', 'business meal', 'client entertainment'], category: 'Client Entertainment' },
-    { keywords: ['invoice', 'payment received', 'revenue', 'client payment', 'deposit'], category: 'Revenue' },
+    { keywords: ['invoice', 'payment received', 'earnings', 'client payment', 'deposit'], category: 'Earnings' },
 ];
 
 /**

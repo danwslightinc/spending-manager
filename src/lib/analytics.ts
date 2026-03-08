@@ -111,31 +111,39 @@ export function getSankeyData(transactions: Transaction[]): SankeyData {
     const totalExpenses = expenses.reduce((sum, t) => sum + Math.abs(t.amount), 0);
     const savings = totalIncome - totalExpenses;
 
-    // Income sources → Category spending
+    // Earnings sources → Category spending
     const categoryExpenses = new Map<string, number>();
     for (const t of expenses) {
-        const cat = t.category || 'Uncategorized';
+        let cat = t.category || 'Uncategorized';
+        // IMPORTANT: Prevent circular links if a category is named "Income"
+        // User clarified these are typically payments to credit cards.
+        if (cat === 'Earnings' || cat === 'Income') cat = 'Credit Card Payment';
         categoryExpenses.set(cat, (categoryExpenses.get(cat) || 0) + Math.abs(t.amount));
     }
 
     const nodes: SankeyData['nodes'] = [
-        { id: 'Income', nodeColor: '#22C55E' },
+        { id: 'Earnings', nodeColor: '#22C55E' },
     ];
 
     const links: SankeyData['links'] = [];
 
-    // Add category nodes and links from Income
+    // Add category nodes and links from Earnings
     for (const [cat, amount] of categoryExpenses) {
         if (amount > 0) {
-            nodes.push({ id: cat, nodeColor: CATEGORY_COLORS[cat] || '#CBD5E1' });
-            links.push({ source: 'Income', target: cat, value: Math.round(amount * 100) / 100 });
+            nodes.push({
+                id: cat,
+                nodeColor: cat === 'Credit Card Payment'
+                    ? '#94A3B8' // Slate for transfers/payments
+                    : (CATEGORY_COLORS[cat] || '#CBD5E1')
+            });
+            links.push({ source: 'Earnings', target: cat, value: Math.round(amount * 100) / 100 });
         }
     }
 
     // Add savings node
     if (savings > 0) {
         nodes.push({ id: 'Savings', nodeColor: '#0EA5E9' });
-        links.push({ source: 'Income', target: 'Savings', value: Math.round(savings * 100) / 100 });
+        links.push({ source: 'Earnings', target: 'Savings', value: Math.round(savings * 100) / 100 });
     }
 
     return { nodes, links };

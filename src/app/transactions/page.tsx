@@ -23,6 +23,10 @@ export default function TransactionsPage() {
     const [sortField, setSortField] = useState<SortField>('date');
     const [sortDir, setSortDir] = useState<SortDir>('desc');
     const [filterCategory, setFilterCategory] = useState<string>('all');
+    const [filterMonth, setFilterMonth] = useState<string>('all');
+    const [filterBank, setFilterBank] = useState<string>('all');
+    const [startDate, setStartDate] = useState<string>('');
+    const [endDate, setEndDate] = useState<string>('');
     const [isAILoading, setIsAILoading] = useState(false);
 
     useEffect(() => {
@@ -33,6 +37,15 @@ export default function TransactionsPage() {
     }, []);
 
     const categories = useMemo(() => getCategoriesForScope(scope), [scope]);
+    const months = useMemo(() => {
+        const set = new Set(transactions.map(t => t.date.slice(0, 7)));
+        return Array.from(set).sort((a, b) => b.localeCompare(a));
+    }, [transactions]);
+
+    const banks = useMemo(() => {
+        const set = new Set(transactions.map(t => t.bank));
+        return Array.from(set).sort();
+    }, [transactions]);
 
     const filteredTxns = useMemo(() => {
         let txns = transactions.filter(t => t.scope === scope);
@@ -52,6 +65,24 @@ export default function TransactionsPage() {
             txns = txns.filter(t => t.category === filterCategory);
         }
 
+        // Bank filter
+        if (filterBank !== 'all') {
+            txns = txns.filter(t => t.bank === filterBank);
+        }
+
+        // Month filter
+        if (filterMonth !== 'all') {
+            txns = txns.filter(t => t.date.startsWith(filterMonth));
+        }
+
+        // Date range
+        if (startDate) {
+            txns = txns.filter(t => t.date >= startDate);
+        }
+        if (endDate) {
+            txns = txns.filter(t => t.date <= endDate);
+        }
+
         // Sort
         txns.sort((a, b) => {
             let cmp = 0;
@@ -65,7 +96,7 @@ export default function TransactionsPage() {
         });
 
         return txns;
-    }, [transactions, scope, search, sortField, sortDir, filterCategory]);
+    }, [transactions, scope, search, sortField, sortDir, filterCategory, filterMonth, filterBank, startDate, endDate]);
 
     const handleSort = (field: SortField) => {
         if (sortField === field) {
@@ -88,17 +119,21 @@ export default function TransactionsPage() {
 
     const handleSmartClean = async () => {
         setIsAILoading(true);
-        const uncategorized = transactions.filter(t => t.scope === scope && t.category === 'Uncategorized');
-
-        if (uncategorized.length === 0) {
-            setIsAILoading(false);
-            alert('No "Uncategorized" transactions found to process.');
-            return;
-        }
-
         try {
-            // Clean descriptions by removing redundant dates and removing duplicates for AI matching
-            const descriptions = [...new Set(uncategorized.map(u => cleanDescription(u.description)))];
+            // Find items that are 'Uncategorized' OR were likely miscategorized (like Rewards labeled as Earnings)
+            const targets = transactions.filter(t =>
+                t.scope === scope &&
+                (t.category === 'Uncategorized' ||
+                    (t.category === 'Earnings' && (t.description.toLowerCase().includes('reward') || t.description.toLowerCase().includes('redemption'))))
+            );
+
+            if (targets.length === 0) {
+                setIsAILoading(false);
+                alert('No applicable transactions found to clean.');
+                return;
+            }
+
+            const descriptions = [...new Set(targets.map(u => cleanDescription(u.description)))];
             const res = await fetch('/api/ai/categorize', {
                 method: 'POST',
                 body: JSON.stringify({ descriptions, scope }),
@@ -111,16 +146,30 @@ export default function TransactionsPage() {
                 return;
             }
 
-            // Bulk update categories in DB
-            for (const txn of uncategorized) {
+            // Bulk update categories
+            console.log('AI Mapping received:', mapping);
+            let updatedCount = 0;
+            for (const txn of targets) {
                 const aiCategory = mapping[cleanDescription(txn.description)];
-                if (aiCategory && aiCategory !== 'Uncategorized') {
+                if (aiCategory && aiCategory !== txn.category && aiCategory !== 'Uncategorized') {
                     await updateTransaction(txn.id, { category: aiCategory });
+                    updatedCount++;
+                }
+            }
+
+            // Also check for very obviously "future" dates that might be from a past year (boundary case)
+            const futureDates = transactions.filter(t => t.date.startsWith('2026-12') || t.date.startsWith('2026-11'));
+            if (futureDates.length > 0 && new Date().getFullYear() === 2026 && new Date().getMonth() < 6) {
+                // If it's early 2026 and we have late-2026 dates, they are almost certainly Dec 2025
+                for (const t of futureDates) {
+                    const newDate = t.date.replace('2026', '2025');
+                    await updateTransaction(t.id, { date: newDate });
+                    updatedCount++;
                 }
             }
 
             setTransactions(await getAllTransactions());
-            alert(`Smart Clean finished! Categorized ${Object.keys(mapping).length} unique items.`);
+            alert(`Smart Clean finished! Updated ${updatedCount} transactions.`);
         } catch (err) {
             console.error('AI Clean Error:', err);
             alert('A network error occurred while reaching Gemini AI.');
@@ -136,33 +185,88 @@ export default function TransactionsPage() {
 
     return (
         <div className="space-y-6">
-            {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input
-                        placeholder="Search transactions..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="pl-9 bg-white border-slate-200 rounded-xl"
-                    />
+            <div className="space-y-4">
+                {/* Search and Primary Filters */}
+                <div className="flex flex-col md:flex-row gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Input
+                            placeholder="Search transactions..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-9 bg-white border-slate-200 rounded-xl"
+                        />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <select
+                            value={filterCategory}
+                            onChange={(e) => setFilterCategory(e.target.value)}
+                            className="text-sm border border-slate-200 rounded-xl px-4 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 h-10 min-w-[140px]"
+                        >
+                            <option value="all">All Categories</option>
+                            {categories.map(c => (
+                                <option key={c} value={c}>{c}</option>
+                            ))}
+                        </select>
+
+                        <select
+                            value={filterBank}
+                            onChange={(e) => setFilterBank(e.target.value)}
+                            className="text-sm border border-slate-200 rounded-xl px-4 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 h-10 min-w-[120px]"
+                        >
+                            <option value="all">All Banks</option>
+                            {banks.map(b => (
+                                <option key={b} value={b}>{b}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-slate-400" />
-                    <select
-                        value={filterCategory}
-                        onChange={(e) => setFilterCategory(e.target.value)}
-                        className="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                    >
-                        <option value="all">All Categories</option>
-                        {categories.map(c => (
-                            <option key={c} value={c}>{c}</option>
-                        ))}
-                    </select>
+
+                {/* Secondary Filters: Month and Date Range */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-1 bg-slate-50/50 rounded-2xl border border-slate-100">
+                    <div className="flex flex-wrap items-center gap-3 px-2">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Month</span>
+                            <select
+                                value={filterMonth}
+                                onChange={(e) => setFilterMonth(e.target.value)}
+                                className="text-sm border-none bg-transparent text-slate-700 focus:ring-0 h-10 font-medium"
+                            >
+                                <option value="all">All Months</option>
+                                {months.map(m => (
+                                    <option key={m} value={m}>
+                                        {new Date(m + '-02').toLocaleDateString('en-CA', { month: 'short', year: 'numeric' })}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Range</span>
+                            <div className="flex items-center gap-2 bg-white/50 border border-slate-200 rounded-lg px-2 py-1">
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="text-xs text-slate-600 bg-transparent border-none focus:ring-0 p-0 w-24"
+                                />
+                                <span className="text-slate-300">→</span>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="text-xs text-slate-600 bg-transparent border-none focus:ring-0 p-0 w-24"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <Button
                         onClick={handleSmartClean}
                         disabled={isAILoading}
-                        className="rounded-xl bg-purple-100 text-purple-700 hover:bg-purple-200 border-none px-6"
+                        className="w-full sm:w-auto rounded-xl bg-purple-100 text-purple-700 hover:bg-purple-200 border-none px-6 h-10 font-semibold transition-all hover:scale-[1.02]"
                     >
                         <Sparkles className={`w-4 h-4 mr-2 ${isAILoading ? 'animate-spin' : ''}`} />
                         {isAILoading ? 'Cleaning...' : 'Smart Clean (AI)'}

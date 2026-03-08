@@ -28,6 +28,12 @@ export async function POST(req: Request) {
             You are a professional financial assistant. Categorize these bank transaction descriptions into EXACTLY one of these categories:
             [${uniqueCategories.join(', ')}]
 
+            CRITICAL RULES:
+            - If a description contains "REWARDS", "REDEMPTION", "CASH BACK", or "REDEEM", you MUST categorize it as "Credit Card Payment".
+            - If a description contains "PAYMENT", categorize it as "Credit Card Payment" (unless it's a transfer between accounts).
+            - If it looks like a salary or payroll, use "Earnings".
+            - If you are unsure, use "Uncategorized".
+
             Return ONLY a valid JSON object. No other text.
             The JSON keys should be the descriptions, and values should be the categories.
 
