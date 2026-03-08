@@ -38,4 +38,9 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# temp directory
+.temp
+.tmp
+
 next-env.d.ts
