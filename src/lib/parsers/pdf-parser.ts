@@ -272,19 +272,19 @@ function parseLinesGeneric(lines: string[], year: string, accountType: string): 
         // Determine the transaction amount
         let amount: number;
         if (accountType === 'credit') {
-            // Credit card: typically one amount, negative = charge, positive = payment/credit
-            // Most banks show charges as positive, payments as negative (or with CR)
-            amount = -Math.abs(amounts[0]); // expenses are negative in our system
-            if (
-                line.toLowerCase().includes(' cr') ||
-                line.toLowerCase().includes('payment') ||
-                line.toLowerCase().includes('rewards') ||
-                line.toLowerCase().includes('redeem') ||
-                line.toLowerCase().includes('cash back') ||
-                line.toLowerCase().includes('adj')
-            ) {
-                amount = Math.abs(amounts[0]);
-            }
+            const rowText = line.toLowerCase();
+            const isCredit =
+                rowText.includes(' cr') ||
+                rowText.includes('payment') ||
+                rowText.includes('rewards') ||
+                rowText.includes('redeem') ||
+                rowText.includes('cash back') ||
+                rowText.includes('redemption') ||
+                rowText.includes('adj') ||
+                rowText.includes('credit') ||
+                rowText.includes('refund');
+
+            amount = isCredit ? Math.abs(amounts[0]) : -Math.abs(amounts[0]);
         } else {
             // Chequing/Savings: may have separate debit/credit columns
             if (amounts.length >= 2) {

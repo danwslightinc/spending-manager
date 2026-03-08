@@ -111,39 +111,67 @@ export function getSankeyData(transactions: Transaction[]): SankeyData {
     const totalExpenses = expenses.reduce((sum, t) => sum + Math.abs(t.amount), 0);
     const savings = totalIncome - totalExpenses;
 
-    // Earnings sources → Category spending
-    const categoryExpenses = new Map<string, number>();
+    const incomeCategories = new Map<string, number>();
+    for (const t of income) {
+        let cat = t.category || 'Earnings';
+        incomeCategories.set(cat, (incomeCategories.get(cat) || 0) + t.amount);
+    }
+
+    const expenseCategories = new Map<string, number>();
     for (const t of expenses) {
         let cat = t.category || 'Uncategorized';
-        // IMPORTANT: Prevent circular links if a category is named "Income"
-        // User clarified these are typically payments to credit cards.
-        if (cat === 'Earnings' || cat === 'Income') cat = 'Credit Card Payment';
-        categoryExpenses.set(cat, (categoryExpenses.get(cat) || 0) + Math.abs(t.amount));
+        // Prevent circular links if an expense is somehow categorized as one of our source nodes
+        if (incomeCategories.has(cat)) {
+            cat = cat + ' (Spending)';
+        }
+        expenseCategories.set(cat, (expenseCategories.get(cat) || 0) + Math.abs(t.amount));
     }
 
-    const nodes: SankeyData['nodes'] = [
-        { id: 'Earnings', nodeColor: '#22C55E' },
-    ];
-
+    const nodes: SankeyData['nodes'] = [];
     const links: SankeyData['links'] = [];
 
-    // Add category nodes and links from Earnings
-    for (const [cat, amount] of categoryExpenses) {
-        if (amount > 0) {
-            nodes.push({
-                id: cat,
-                nodeColor: cat === 'Credit Card Payment'
-                    ? '#94A3B8' // Slate for transfers/payments
-                    : (CATEGORY_COLORS[cat] || '#CBD5E1')
-            });
-            links.push({ source: 'Earnings', target: cat, value: Math.round(amount * 100) / 100 });
-        }
+    // Add source nodes (income categories)
+    for (const [cat, value] of incomeCategories) {
+        nodes.push({ id: cat, nodeColor: CATEGORY_COLORS[cat] || '#22C55E' });
     }
 
-    // Add savings node
-    if (savings > 0) {
-        nodes.push({ id: 'Savings', nodeColor: '#0EA5E9' });
-        links.push({ source: 'Earnings', target: 'Savings', value: Math.round(savings * 100) / 100 });
+    // Add target nodes (expense categories)
+    for (const [cat, value] of expenseCategories) {
+        nodes.push({ id: cat, nodeColor: CATEGORY_COLORS[cat] || '#F87171' });
+
+        // Link all income proportionally to expenses
+        // Simplification: Just link the largest source to expenses for now to avoid mess, 
+        // OR distribute proportionally. Let's do a single 'Total Funds' virtual balance point
+        // if multiple sources exist, or just link each source to categories.
+    }
+
+    // For a clean Sankey, we'll link all sources to their destination categories
+    // We'll use a virtual 'Funds' node to act as a bridge if there are multiple sources
+    if (incomeCategories.size > 1) {
+        nodes.push({ id: 'Funds', nodeColor: '#94A3B8' });
+        for (const [cat, value] of incomeCategories) {
+            links.push({ source: cat, target: 'Funds', value: Math.round(value * 100) / 100 });
+        }
+        for (const [cat, value] of expenseCategories) {
+            const ratio = totalExpenses > 0 ? value / totalExpenses : 0;
+            links.push({ source: 'Funds', target: cat, value: Math.round(value * 100) / 100 });
+        }
+        if (savings > 0) {
+            nodes.push({ id: 'Savings', nodeColor: '#0EA5E9' });
+            links.push({ source: 'Funds', target: 'Savings', value: Math.round(savings * 100) / 100 });
+        }
+    } else {
+        const sourceName = incomeCategories.keys().next().value || 'Earnings';
+        // Ensure source exists even if no income transactions
+        if (!incomeCategories.has(sourceName)) nodes.push({ id: sourceName, nodeColor: '#22C55E' });
+
+        for (const [cat, value] of expenseCategories) {
+            links.push({ source: sourceName, target: cat, value: Math.round(value * 100) / 100 });
+        }
+        if (savings > 0) {
+            nodes.push({ id: 'Savings', nodeColor: '#0EA5E9' });
+            links.push({ source: sourceName, target: 'Savings', value: Math.round(savings * 100) / 100 });
+        }
     }
 
     return { nodes, links };
