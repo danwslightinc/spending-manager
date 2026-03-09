@@ -229,7 +229,13 @@ export default function TransactionsPage() {
                             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Month</span>
                             <select
                                 value={filterMonth}
-                                onChange={(e) => setFilterMonth(e.target.value)}
+                                onChange={(e) => {
+                                    setFilterMonth(e.target.value);
+                                    if (e.target.value !== 'all') {
+                                        setStartDate('');
+                                        setEndDate('');
+                                    }
+                                }}
                                 className="text-sm border-none bg-transparent text-slate-700 focus:ring-0 h-10 font-medium"
                             >
                                 <option value="all">All Months</option>
@@ -249,28 +255,51 @@ export default function TransactionsPage() {
                                 <input
                                     type="date"
                                     value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
+                                    onChange={(e) => {
+                                        setStartDate(e.target.value);
+                                        if (e.target.value) setFilterMonth('all');
+                                    }}
                                     className="text-xs text-slate-600 bg-transparent border-none focus:ring-0 p-0 w-24"
                                 />
                                 <span className="text-slate-300">→</span>
                                 <input
                                     type="date"
                                     value={endDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
+                                    onChange={(e) => {
+                                        setEndDate(e.target.value);
+                                        if (e.target.value) setFilterMonth('all');
+                                    }}
                                     className="text-xs text-slate-600 bg-transparent border-none focus:ring-0 p-0 w-24"
                                 />
                             </div>
                         </div>
                     </div>
 
-                    <Button
-                        onClick={handleSmartClean}
-                        disabled={isAILoading}
-                        className="w-full sm:w-auto rounded-xl bg-purple-100 text-purple-700 hover:bg-purple-200 border-none px-6 h-10 font-semibold transition-all hover:scale-[1.02]"
-                    >
-                        <Sparkles className={`w-4 h-4 mr-2 ${isAILoading ? 'animate-spin' : ''}`} />
-                        {isAILoading ? 'Cleaning...' : 'Smart Clean (AI)'}
-                    </Button>
+                    <div className="flex items-center gap-2 px-2">
+                        {(filterCategory !== 'all' || filterBank !== 'all' || filterMonth !== 'all' || startDate || endDate || search) && (
+                            <button
+                                onClick={() => {
+                                    setSearch('');
+                                    setFilterCategory('all');
+                                    setFilterBank('all');
+                                    setFilterMonth('all');
+                                    setStartDate('');
+                                    setEndDate('');
+                                }}
+                                className="text-xs text-slate-500 hover:text-rose-600 underline underline-offset-2 transition-colors whitespace-nowrap"
+                            >
+                                Clear Filters
+                            </button>
+                        )}
+                        <Button
+                            onClick={handleSmartClean}
+                            disabled={isAILoading}
+                            className="w-full sm:w-auto rounded-xl bg-purple-100 text-purple-700 hover:bg-purple-200 border-none px-6 h-10 font-semibold transition-all hover:scale-[1.02]"
+                        >
+                            <Sparkles className={`w-4 h-4 mr-2 ${isAILoading ? 'animate-spin' : ''}`} />
+                            {isAILoading ? 'Cleaning...' : 'Smart Clean (AI)'}
+                        </Button>
+                    </div>
                 </div>
             </div>
 
